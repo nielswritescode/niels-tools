@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice Timer — Niels' Tools</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="timer.css">
+</head>
+<body>
+<div class="practice-flash" id="practiceFlash" aria-hidden="true">PRACTICE</div>
+<div class="wrap">
+  <a class="back-link" href="../../">&larr; All tools</a>
+  <header class="site-header">
+    <h1>Practice Timer</h1>
+    <p class="tagline">Simple or multi-round countdown timer.</p>
+  </header>
+
+  <div class="panel timer-card">
+    <div class="row center">
+      <button type="button" class="pill timer-mode-pill active" data-timer-mode="simple">Simple Timer</button>
+      <button type="button" class="pill timer-mode-pill" data-timer-mode="multi">Multi Timer</button>
+    </div>
+
+    <div class="timer-setup" id="timerSetup">
+      <div class="timer-picker" id="timerPicker">
+        <div class="row timer-duration-row center" id="timerDurationRow">
+          <button type="button" class="pill timer-duration-btn" data-minutes="5">5m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="10">10m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="15">15m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="20">20m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="25">25m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="30">30m</button>
+        </div>
+        <div class="timer-sequence" id="timerSequence" hidden></div>
+        <div class="row timer-multi-actions center" id="timerMultiActions" hidden>
+          <button type="button" class="btn-ghost timer-symbol-btn" id="timerReturnBtn" aria-label="Return — undo last">&#10005;</button>
+          <button type="button" class="pill timer-symbol-btn" id="timerLoopBtn" aria-label="Loop">&#8734;</button>
+          <button type="button" class="btn-main timer-symbol-btn" id="timerConfirmBtn" aria-label="Confirm">&#10003;</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="timer-running" id="timerRunning" hidden>
+      <div class="timer-sequence" id="timerRunningSequence"></div>
+      <button type="button" class="timer-countdown" id="timerCountdown" aria-label="Stop timer">0:00</button>
+    </div>
+  </div>
+
+  <details class="panel collapsible-panel" id="settingsDetails">
+    <summary>Settings</summary>
+    <div class="collapsible-body">
+      <div class="row">
+        <div class="label">Timer sound</div>
+        <button type="button" class="pill timer-sound-pill active" data-timer-sound="chime">Chime</button>
+        <button type="button" class="pill timer-sound-pill" data-timer-sound="bell">Bell</button>
+        <button type="button" class="pill timer-sound-pill" data-timer-sound="beep">Beep</button>
+        <button type="button" class="btn-ghost" id="timerSoundPreviewBtn">Preview</button>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <div class="label">Timer volume</div>
+        <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
+        <span class="range-value" id="timerVolumeValue">70%</span>
+      </div>
+      <div class="row timer-duration-edit-row" style="margin-top:14px;">
+        <div class="label">Timer durations</div>
+        <button type="button" class="pill timer-duration-unit-pill active" data-timer-duration-unit="minutes">Minutes</button>
+        <button type="button" class="pill timer-duration-unit-pill" data-timer-duration-unit="seconds">Seconds</button>
+        <input type="number" class="timer-duration-input" data-duration-index="0" min="1" max="180" value="5">
+        <input type="number" class="timer-duration-input" data-duration-index="1" min="1" max="180" value="10">
+        <input type="number" class="timer-duration-input" data-duration-index="2" min="1" max="180" value="15">
+        <input type="number" class="timer-duration-input" data-duration-index="3" min="1" max="180" value="20">
+        <input type="number" class="timer-duration-input" data-duration-index="4" min="1" max="180" value="25">
+        <input type="number" class="timer-duration-input" data-duration-index="5" min="1" max="180" value="30">
+      </div>
+    </div>
+  </details>
+</div>
+<script src="timer.js"></script>
+</body>
+</html>

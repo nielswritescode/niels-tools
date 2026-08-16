@@ -1,0 +1,186 @@
+.timer-card{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:16px;
+  text-align:center;
+  max-width:520px;
+  margin:0 auto 16px;
+  padding:28px 20px;
+}
+.timer-setup[hidden],
+.timer-running[hidden]{display:none;}
+.timer-setup,
+.timer-picker,
+.timer-running{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  width:100%;
+}
+.timer-sequence{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+}
+.timer-sequence[hidden]{display:none;}
+.timer-multi-actions[hidden]{display:none;}
+/* Its own accent-adjacent color rather than the main accent — the sequence
+   squares read as their own thing at a glance, distinct from the mode pills
+   and Return/Loop/Confirm buttons right next to them. */
+.timer-square{
+  width:44px;
+  height:44px;
+  border-radius:10px;
+  background:var(--panel-2);
+  border:1px solid var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:12px;
+  color:var(--ink);
+  flex-shrink:0;
+}
+.timer-square.active{
+  background:var(--accent);
+  color:var(--accent-ink);
+  border-color:var(--accent);
+}
+.timer-square.done{opacity:.4;}
+#timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+
+/* Return/Loop/Confirm read as icons rather than text pills — square-ish and
+   a bit larger so a single glyph doesn't look lost. */
+.timer-symbol-btn{
+  width:46px;
+  height:40px;
+  padding:0;
+  font-size:18px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+/* A <button>, not just a display — clicking the number itself is the only
+   way to stop a running timer, so it needs to read as interactive. */
+.timer-countdown{
+  border:none;
+  background:none;
+  padding:0;
+  cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:clamp(48px,14vw,88px);
+  line-height:1;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.timer-countdown:hover{filter:brightness(1.15);}
+.timer-countdown:focus-visible{outline:2px solid var(--ink); outline-offset:4px;}
+
+.timer-duration-input{width:54px; text-align:center; padding:7px 6px;}
+
+/* A brief full-screen flash of "PRACTICE" fired once when a timer queue
+   actually starts (not on each item within a multi-timer sequence) —
+   purely decorative, so pointer-events:none and aria-hidden keep it out of
+   the way of clicks and screen readers. Triggered by toggling .show; the
+   animation's own "forwards" fill keeps it invisible at rest without
+   needing separate hide-after-timeout JS. */
+.practice-flash{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:800;
+  font-size:clamp(48px, 12vw, 140px);
+  letter-spacing:0.05em;
+  color:var(--accent);
+  background:rgba(0,0,0,0.35);
+  opacity:0;
+  pointer-events:none;
+}
+/* 7 alternate looks for the flash, picked at random each time by
+   flashPracticeWordart() (timer.js) — each is a class paired with .show,
+   never applied on its own, so this can't collide with .practice-flash's
+   resting opacity:0. */
+.practice-flash.show.flash-glow{animation:practiceFlashGlow 1.6s ease-out forwards;}
+@keyframes practiceFlashGlow{
+  0%{opacity:0; transform:scale(.7);}
+  10%{opacity:1; transform:scale(1.05); text-shadow:0 0 20px var(--accent), 0 0 60px var(--accent);}
+  85%{opacity:1;}
+  100%{opacity:0; transform:scale(1);}
+}
+.practice-flash.show.flash-slide{animation:practiceFlashSlide 1.5s cubic-bezier(.16,1,.3,1) forwards;}
+@keyframes practiceFlashSlide{
+  0%{opacity:0; transform:translateX(-40vw) skewX(-15deg);}
+  15%{opacity:1; transform:translateX(0) skewX(-6deg); text-shadow:0 0 20px var(--accent);}
+  30%{transform:translateX(0) skewX(0deg);}
+  80%{opacity:1;}
+  100%{opacity:0; transform:translateX(20px);}
+}
+.practice-flash.show.flash-flicker{animation:practiceFlashFlicker 1.7s linear forwards;}
+@keyframes practiceFlashFlicker{
+  0%{opacity:0;}
+  5%{opacity:1; text-shadow:0 0 25px var(--accent), 0 0 60px var(--accent);}
+  10%{opacity:.2;}
+  15%{opacity:1;}
+  20%{opacity:.3;}
+  25%{opacity:1;}
+  70%{opacity:1;}
+  85%{opacity:.4;}
+  92%{opacity:1;}
+  100%{opacity:0;}
+}
+.practice-flash.show.flash-wipe{animation:practiceFlashWipe 1.6s ease-in-out forwards;}
+@keyframes practiceFlashWipe{
+  0%{opacity:1; clip-path:inset(0 100% 0 0); text-shadow:0 0 20px var(--accent);}
+  45%{clip-path:inset(0 0% 0 0);}
+  85%{opacity:1; clip-path:inset(0 0% 0 0);}
+  100%{opacity:0; clip-path:inset(0 0% 0 0);}
+}
+.practice-flash.show.flash-glitch{animation:practiceFlashGlitch 1.5s steps(1,end) forwards;}
+@keyframes practiceFlashGlitch{
+  0%{opacity:0; transform:translate(0,0);}
+  8%{opacity:1; color:var(--ink); text-shadow:-3px 0 var(--accent), 3px 0 var(--ink-dim); transform:translate(-2px,1px);}
+  16%{text-shadow:3px 0 var(--accent), -3px 0 var(--ink-dim); transform:translate(2px,-1px);}
+  24%{text-shadow:-2px 0 var(--ink-dim), 2px 0 var(--accent); transform:translate(-1px,0);}
+  32%{text-shadow:none; color:var(--accent); transform:translate(0,0);}
+  45%{text-shadow:2px 0 var(--ink-dim), -2px 0 var(--accent); transform:translate(1px,1px);}
+  55%{text-shadow:none; transform:translate(0,0);}
+  85%{opacity:1;}
+  100%{opacity:0;}
+}
+.practice-flash.show.flash-zoom{animation:practiceFlashZoom 1.6s cubic-bezier(.2,.8,.2,1) forwards;}
+@keyframes practiceFlashZoom{
+  0%{opacity:0; transform:scale(3); filter:blur(20px);}
+  25%{opacity:1; transform:scale(1); filter:blur(0px); text-shadow:0 0 30px var(--accent);}
+  80%{opacity:1; transform:scale(1);}
+  100%{opacity:0; transform:scale(.9); filter:blur(4px);}
+}
+.practice-flash.show.flash-flip{animation:practiceFlashFlip 1.6s ease-out forwards;}
+@keyframes practiceFlashFlip{
+  0%{opacity:0; transform:perspective(600px) rotateX(90deg);}
+  20%{opacity:1; transform:perspective(600px) rotateX(0deg); text-shadow:0 0 20px var(--accent);}
+  60%{transform:perspective(600px) rotateX(0deg);}
+  85%{opacity:1;}
+  100%{opacity:0; transform:perspective(600px) rotateX(-20deg);}
+}
+
+/* 7 alternate visual looks, layered independently on top of whichever
+   flash-* rollin is picked (see PRACTICE_FLASH_STYLES in timer.js). Each
+   only sets properties the rollin keyframes above never touch, so the two
+   axes can be combined freely without one clobbering the other mid-run. */
+.practice-flash.show.style-outline{-webkit-text-stroke:3px var(--ink); font-weight:900;}
+.practice-flash.show.style-mono{font-family:'Courier New',ui-monospace,monospace; font-weight:700; letter-spacing:0.02em;}
+.practice-flash.show.style-card{background:var(--panel); border:4px solid var(--ink); border-radius:20px; padding:0.15em 0.5em; box-shadow:10px 10px 0 var(--ink);}
+.practice-flash.show.style-underline{text-decoration:underline wavy; text-decoration-color:var(--ink-dim); text-underline-offset:14px; text-decoration-thickness:6px;}
+.practice-flash.show.style-italic{font-family:Georgia,'Times New Roman',serif; font-style:italic; font-weight:700;}
+.practice-flash.show.style-wide{letter-spacing:0.35em; font-weight:500;}
+.practice-flash.show.style-neon{background:radial-gradient(ellipse at center, var(--panel-2) 0%, transparent 70%); border-radius:28px; padding:0.2em 0.6em; backdrop-filter:blur(2px);}

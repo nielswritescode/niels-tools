@@ -5,9 +5,17 @@
   let timerVolume = 0.7; // 0..1, persisted — it's a preference, not session state
   let timerMode = "simple"; // 'simple' | 'multi' — also persisted
   let timerLoop = false;
-  let timerDurationMinutes = [5, 10, 15, 20, 25, 30]; // editable via the Settings panel inputs, also persisted
   const TIMER_DURATION_UNITS = ["minutes", "seconds"];
-  let timerDurationUnit = "minutes"; // whether the 6 values above mean minutes or seconds; also persisted
+  // The picker's pool of presets, each with its own unit — editable via the
+  // Add timer / Remove timer controls, also persisted.
+  let timerDurations = [
+    { value: 5, unit: "minutes" },
+    { value: 10, unit: "minutes" },
+    { value: 15, unit: "minutes" },
+    { value: 20, unit: "minutes" },
+    { value: 25, unit: "minutes" },
+    { value: 30, unit: "minutes" },
+  ];
 
   // ---- persisted settings ----
   const SETTINGS_KEY = "nielsTools:practiceTimer";
@@ -25,13 +33,13 @@
       timerVolume = stored.timerVolume;
     }
     if (
-      Array.isArray(stored.timerDurationMinutes) &&
-      stored.timerDurationMinutes.length === 6 &&
-      stored.timerDurationMinutes.every((m) => typeof m === "number" && m >= 1 && m <= 180)
+      Array.isArray(stored.timerDurations) &&
+      stored.timerDurations.every((d) => (
+        d && typeof d.value === "number" && d.value >= 1 && d.value <= 180 && TIMER_DURATION_UNITS.includes(d.unit)
+      ))
     ) {
-      timerDurationMinutes = stored.timerDurationMinutes;
+      timerDurations = stored.timerDurations;
     }
-    if (TIMER_DURATION_UNITS.includes(stored.timerDurationUnit)) timerDurationUnit = stored.timerDurationUnit;
     if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
     if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
   }
@@ -41,8 +49,7 @@
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         timerSound,
         timerVolume,
-        timerDurationMinutes,
-        timerDurationUnit,
+        timerDurations,
         timerMode,
         timerLoop,
       }));
@@ -62,9 +69,14 @@
   const timerSoundPreviewBtn = document.getElementById("timerSoundPreviewBtn");
   const timerVolumeSlider = document.getElementById("timerVolumeSlider");
   const timerVolumeValue = document.getElementById("timerVolumeValue");
-  const timerDurationBtns = document.querySelectorAll(".timer-duration-btn");
-  const timerDurationInputs = document.querySelectorAll(".timer-duration-input");
-  const timerDurationUnitPills = document.querySelectorAll(".timer-duration-unit-pill");
+  const timerDurationRow = document.getElementById("timerDurationRow");
+  const timerAddDurationBtn = document.getElementById("timerAddDurationBtn");
+  const timerRemoveDurationBtn = document.getElementById("timerRemoveDurationBtn");
+  const timerAddDialog = document.getElementById("timerAddDialog");
+  const timerAddForm = document.getElementById("timerAddForm");
+  const timerAddUnitPills = document.querySelectorAll(".timer-add-unit-pill");
+  const timerAddValueInput = document.getElementById("timerAddValueInput");
+  const timerAddCancelBtn = document.getElementById("timerAddCancelBtn");
   const practiceFlashEl = document.getElementById("practiceFlash");
   const timerSetup = document.getElementById("timerSetup");
   const timerSequenceEl = document.getElementById("timerSequence");
@@ -76,20 +88,20 @@
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerCountdownEl = document.getElementById("timerCountdown");
 
-  // Practice timer state. timerMode, timerLoop, timerDurationMinutes and
-  // timerDurationUnit are declared above and persisted — they're
-  // preferences. The rest here is deliberately NOT persisted: you want a
-  // clean slate on a fresh visit rather than resuming mid-countdown or with
-  // a stale queue. Durations are in whatever timerDurationUnit says (what
-  // the 6 buttons offer and what a built sequence is made of); the
+  // Practice timer state. timerMode, timerLoop and timerDurations are
+  // declared above and persisted — they're preferences. The rest here is
+  // deliberately NOT persisted: you want a clean slate on a fresh visit
+  // rather than resuming mid-countdown or with a stale queue. Queue items
+  // are {value, unit} objects, same shape as timerDurations entries; the
   // countdown itself still ticks in seconds internally so it can show
   // MM:SS.
-  let timerQueuedMinutes = []; // being built in multi mode, pre-Confirm
+  let timerQueuedItems = []; // being built in multi mode, pre-Confirm
   let timerRunningNow = false;
   let timerIntervalId = null;
   let timerActiveQueue = [];
   let timerQueueIndex = 0;
   let timerRemainingSeconds = 0;
+  let timerRemoveMode = false; // toggled by "Remove timer" — clicking a chip deletes it instead of starting/queueing it
 
   function updateTimerModeUI() {
     timerModePills.forEach((btn) => {
@@ -98,80 +110,115 @@
     const isMulti = timerMode === "multi";
     timerSequenceEl.hidden = !isMulti;
     timerMultiActions.hidden = !isMulti;
-    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+    renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
   }
   timerModePills.forEach((btn) => {
     btn.addEventListener("click", () => {
       if (timerRunningNow) return; // don't let a mode switch pull the rug out mid-countdown
       timerMode = btn.dataset.timerMode;
-      timerQueuedMinutes = []; // switching modes starts the sequence builder over
+      timerQueuedItems = []; // switching modes starts the sequence builder over
       updateTimerModeUI();
       saveSettings();
     });
   });
 
-  // "m" or "s" depending on timerDurationUnit — shared by the duration
-  // buttons/inputs and the sequence squares so they always agree.
-  function timerUnitSuffix() {
-    return timerDurationUnit === "seconds" ? "s" : "m";
+  // "m" or "s" depending on the item's own unit.
+  function timerItemLabel(item) {
+    return `${item.value}${item.unit === "seconds" ? "s" : "m"}`;
+  }
+  function timerItemSeconds(item) {
+    return item.unit === "seconds" ? item.value : item.value * 60;
   }
 
   // Renders a row of duration squares — reused for both the multi-mode
   // sequence builder (activeIndex -1, nothing marked done) and the running
   // view (the in-progress item highlighted, earlier ones dimmed as done).
-  function renderTimerSquares(container, minutes, activeIndex) {
-    const suffix = timerUnitSuffix();
-    container.innerHTML = minutes.map((m, i) => {
+  function renderTimerSquares(container, items, activeIndex) {
+    container.innerHTML = items.map((item, i) => {
       const cls = i === activeIndex ? "active" : i < activeIndex ? "done" : "";
-      return `<div class="timer-square ${cls}">${m}${suffix}</div>`;
+      return `<div class="timer-square ${cls}">${timerItemLabel(item)}</div>`;
     }).join("");
   }
 
-  // Keeps the 6 duration buttons' labels/data-minutes and the matching
-  // Settings-panel number inputs in sync with timerDurationMinutes, whether
-  // it just changed via an input or was restored from localStorage. The
-  // buttons' values are always in timerDurationUnit — minutes or seconds —
-  // and startCurrentTimerItem is what actually converts them to seconds.
-  function applyTimerDurations() {
-    const suffix = timerUnitSuffix();
-    timerDurationBtns.forEach((btn, i) => {
-      const m = timerDurationMinutes[i];
-      btn.dataset.minutes = m;
-      btn.textContent = `${m}${suffix}`;
-    });
-    timerDurationInputs.forEach((input, i) => {
-      input.value = timerDurationMinutes[i];
-    });
-  }
-  timerDurationInputs.forEach((input, i) => {
-    input.addEventListener("change", () => {
-      const parsed = parseInt(input.value, 10);
-      const clamped = Number.isFinite(parsed) ? Math.min(180, Math.max(1, parsed)) : timerDurationMinutes[i];
-      timerDurationMinutes[i] = clamped;
-      applyTimerDurations();
-      saveSettings();
-    });
-    input.addEventListener("focus", () => input.select());
-  });
-
-  function updateTimerDurationUnitUI() {
-    timerDurationUnitPills.forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.timerDurationUnit === timerDurationUnit);
-    });
-    applyTimerDurations();
-    // Re-label any squares already on screen (a queued multi-mode sequence,
-    // or the running view) so they stay in sync instead of showing a stale unit.
-    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
-    if (timerMode === "multi" && timerRunningNow) {
-      renderTimerSquares(timerRunningSequenceEl, timerActiveQueue, timerQueueIndex);
+  // Renders the picker's pool of duration chips from timerDurations.
+  // animateLastIn plays a pop-in animation on the newest chip (just added
+  // via the dialog) rather than instantly appearing with the rest.
+  function renderTimerDurationRow(animateLastIn) {
+    timerDurationRow.innerHTML = timerDurations.map((item, i) => (
+      `<button type="button" class="pill timer-duration-btn" data-index="${i}">${timerItemLabel(item)}</button>`
+    )).join("");
+    timerDurationRow.classList.toggle("remove-mode", timerRemoveMode);
+    if (animateLastIn && timerDurationRow.lastElementChild) {
+      timerDurationRow.lastElementChild.classList.add("entering");
     }
   }
-  timerDurationUnitPills.forEach((btn) => {
+
+  // Single delegated listener since the chips are re-rendered wholesale on
+  // every add/remove rather than getting individual listeners each time.
+  timerDurationRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".timer-duration-btn");
+    if (!btn) return;
+    const index = Number(btn.dataset.index);
+    const item = timerDurations[index];
+    if (!item) return;
+    if (timerRemoveMode) {
+      // Play the fade/scale-out animation, then actually remove the item
+      // once it finishes so the index used above stays valid throughout.
+      btn.classList.add("removing");
+      btn.addEventListener("animationend", () => {
+        timerDurations.splice(index, 1);
+        renderTimerDurationRow();
+        saveSettings();
+      }, { once: true });
+      return;
+    }
+    primeTimerAudio();
+    if (timerMode === "simple") {
+      startTimerQueue([item]);
+    } else {
+      timerQueuedItems.push(item);
+      renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
+    }
+  });
+
+  timerRemoveDurationBtn.addEventListener("click", () => {
+    timerRemoveMode = !timerRemoveMode;
+    timerRemoveDurationBtn.classList.toggle("active", timerRemoveMode);
+    timerDurationRow.classList.toggle("remove-mode", timerRemoveMode);
+  });
+
+  let timerAddUnit = "minutes"; // remembered across opens in this session for convenience, not persisted
+  function updateTimerAddUnitUI() {
+    timerAddUnitPills.forEach((btn) => btn.classList.toggle("active", btn.dataset.unit === timerAddUnit));
+  }
+  timerAddUnitPills.forEach((btn) => {
     btn.addEventListener("click", () => {
-      timerDurationUnit = btn.dataset.timerDurationUnit;
-      updateTimerDurationUnitUI();
-      saveSettings();
+      timerAddUnit = btn.dataset.unit;
+      updateTimerAddUnitUI();
     });
+  });
+
+  timerAddDurationBtn.addEventListener("click", () => {
+    updateTimerAddUnitUI();
+    timerAddValueInput.value = "5";
+    timerAddDialog.showModal();
+    timerAddValueInput.focus();
+    timerAddValueInput.select();
+  });
+  timerAddCancelBtn.addEventListener("click", () => timerAddDialog.close());
+  // Click on the ::backdrop (i.e. directly on the dialog element, not its
+  // form) dismisses it, like clicking outside any other popup would.
+  timerAddDialog.addEventListener("click", (e) => {
+    if (e.target === timerAddDialog) timerAddDialog.close();
+  });
+  timerAddForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const parsed = parseInt(timerAddValueInput.value, 10);
+    const value = Number.isFinite(parsed) ? clamp(parsed, 1, 180) : 5;
+    timerDurations.push({ value, unit: timerAddUnit });
+    renderTimerDurationRow(true);
+    saveSettings();
+    timerAddDialog.close();
   });
 
   function formatMinSec(totalSeconds) {
@@ -288,9 +335,9 @@
     }
   }
 
-  // Returns to the setup UI (mode pills + the 6 duration buttons, and in
-  // multi mode the sequence builder) without clearing timerQueuedMinutes, so
-  // a manual stop or a finished non-looping run can just be re-Confirmed to
+  // Returns to the setup UI (mode pills + the duration chips, and in multi
+  // mode the sequence builder) without clearing timerQueuedItems, so a
+  // manual stop or a finished non-looping run can just be re-Confirmed to
   // replay it.
   function returnToTimerPicker() {
     stopTimerInterval();
@@ -320,7 +367,7 @@
   }
 
   function startCurrentTimerItem() {
-    timerRemainingSeconds = timerActiveQueue[timerQueueIndex] * (timerDurationUnit === "seconds" ? 1 : 60);
+    timerRemainingSeconds = timerItemSeconds(timerActiveQueue[timerQueueIndex]);
     timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
     // Simple mode is just one bare countdown — no sequence, so no point
     // showing a single square for it.
@@ -368,22 +415,9 @@
     startCurrentTimerItem();
   }
 
-  timerDurationBtns.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      primeTimerAudio();
-      const minutes = Number(btn.dataset.minutes);
-      if (timerMode === "simple") {
-        startTimerQueue([minutes]);
-      } else {
-        timerQueuedMinutes.push(minutes);
-        renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
-      }
-    });
-  });
-
   timerReturnBtn.addEventListener("click", () => {
-    timerQueuedMinutes.pop();
-    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+    timerQueuedItems.pop();
+    renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
   });
 
   timerLoopBtn.addEventListener("click", () => {
@@ -394,7 +428,7 @@
 
   timerConfirmBtn.addEventListener("click", () => {
     primeTimerAudio();
-    startTimerQueue([...timerQueuedMinutes]);
+    startTimerQueue([...timerQueuedItems]);
   });
 
   // The countdown number is itself the stop control — no separate button.
@@ -403,7 +437,7 @@
   // ---- init ----
   updateTimerModeUI();
   timerLoopBtn.classList.toggle("active", timerLoop);
-  updateTimerDurationUnitUI();
+  renderTimerDurationRow();
   updateTimerSoundUI();
   updateTimerVolumeUI();
 })();

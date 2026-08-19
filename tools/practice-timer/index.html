@@ -24,13 +24,10 @@
 
     <div class="timer-setup" id="timerSetup">
       <div class="timer-picker" id="timerPicker">
-        <div class="row timer-duration-row center" id="timerDurationRow">
-          <button type="button" class="pill timer-duration-btn" data-minutes="5">5m</button>
-          <button type="button" class="pill timer-duration-btn" data-minutes="10">10m</button>
-          <button type="button" class="pill timer-duration-btn" data-minutes="15">15m</button>
-          <button type="button" class="pill timer-duration-btn" data-minutes="20">20m</button>
-          <button type="button" class="pill timer-duration-btn" data-minutes="25">25m</button>
-          <button type="button" class="pill timer-duration-btn" data-minutes="30">30m</button>
+        <div class="row timer-duration-row center" id="timerDurationRow"></div>
+        <div class="row timer-duration-controls center">
+          <button type="button" class="pill" id="timerAddDurationBtn">+ Add timer</button>
+          <button type="button" class="pill" id="timerRemoveDurationBtn">Remove timer</button>
         </div>
         <div class="timer-sequence" id="timerSequence" hidden></div>
         <div class="row timer-multi-actions center" id="timerMultiActions" hidden>
@@ -62,19 +59,25 @@
         <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
         <span class="range-value" id="timerVolumeValue">70%</span>
       </div>
-      <div class="row timer-duration-edit-row" style="margin-top:14px;">
-        <div class="label">Timer durations</div>
-        <button type="button" class="pill timer-duration-unit-pill active" data-timer-duration-unit="minutes">Minutes</button>
-        <button type="button" class="pill timer-duration-unit-pill" data-timer-duration-unit="seconds">Seconds</button>
-        <input type="number" class="timer-duration-input" data-duration-index="0" min="1" max="180" value="5">
-        <input type="number" class="timer-duration-input" data-duration-index="1" min="1" max="180" value="10">
-        <input type="number" class="timer-duration-input" data-duration-index="2" min="1" max="180" value="15">
-        <input type="number" class="timer-duration-input" data-duration-index="3" min="1" max="180" value="20">
-        <input type="number" class="timer-duration-input" data-duration-index="4" min="1" max="180" value="25">
-        <input type="number" class="timer-duration-input" data-duration-index="5" min="1" max="180" value="30">
-      </div>
     </div>
   </details>
+
+  <dialog class="timer-add-dialog" id="timerAddDialog">
+    <form class="timer-add-form" id="timerAddForm">
+      <div class="label">New timer</div>
+      <div class="row center">
+        <button type="button" class="pill timer-add-unit-pill active" data-unit="minutes">Minutes</button>
+        <button type="button" class="pill timer-add-unit-pill" data-unit="seconds">Seconds</button>
+      </div>
+      <div class="row center">
+        <input type="number" id="timerAddValueInput" min="1" max="180" value="5">
+      </div>
+      <div class="row center">
+        <button type="button" class="btn-ghost" id="timerAddCancelBtn">Cancel</button>
+        <button type="submit" class="btn-main">Add</button>
+      </div>
+    </form>
+  </dialog>
 </div>
 <script src="timer.js"></script>
 </body>

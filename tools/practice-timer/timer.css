@@ -53,6 +53,64 @@
 .timer-square.done{opacity:.4;}
 #timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
 
+/* Remove mode gives every chip a dashed border and a small "x" badge so it
+   reads as "tap to delete" instead of "tap to start/queue". */
+.timer-duration-row.remove-mode .timer-duration-btn{
+  border-style:dashed;
+  border-color:var(--ink-dim);
+  position:relative;
+}
+.timer-duration-row.remove-mode .timer-duration-btn::after{
+  content:"\00d7";
+  position:absolute;
+  top:-7px;
+  right:-7px;
+  width:16px;
+  height:16px;
+  border-radius:50%;
+  background:var(--ink);
+  color:var(--panel);
+  font-size:11px;
+  line-height:16px;
+  font-weight:700;
+}
+@keyframes timerChipIn{
+  0%{opacity:0; transform:scale(.6);}
+  100%{opacity:1; transform:scale(1);}
+}
+@keyframes timerChipOut{
+  0%{opacity:1; transform:scale(1);}
+  100%{opacity:0; transform:scale(.6);}
+}
+.timer-duration-btn.entering{animation:timerChipIn .22s ease-out;}
+.timer-duration-btn.removing{animation:timerChipOut .18s ease-in forwards; pointer-events:none;}
+
+/* The "Add timer" popup — a native <dialog> so Escape-to-close and the
+   backdrop/top-layer stacking come for free; only its box and entrance get
+   custom styling here. */
+.timer-add-dialog{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--panel);
+  color:var(--ink);
+  padding:24px;
+  max-width:280px;
+  width:calc(100% - 40px);
+}
+.timer-add-dialog::backdrop{background:rgba(0,0,0,0.5);}
+.timer-add-dialog[open]{animation:timerDialogIn .18s ease-out;}
+@keyframes timerDialogIn{
+  0%{opacity:0; transform:scale(.92) translateY(8px);}
+  100%{opacity:1; transform:scale(1) translateY(0);}
+}
+.timer-add-form{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  width:100%;
+}
+.timer-add-form #timerAddValueInput{width:100%; text-align:center;}
+
 /* Return/Loop/Confirm read as icons rather than text pills — square-ish and
    a bit larger so a single glyph doesn't look lost. */
 .timer-symbol-btn{
@@ -81,8 +139,6 @@
 }
 .timer-countdown:hover{filter:brightness(1.15);}
 .timer-countdown:focus-visible{outline:2px solid var(--ink); outline-offset:4px;}
-
-.timer-duration-input{width:54px; text-align:center; padding:7px 6px;}
 
 /* A brief full-screen flash of "PRACTICE" fired once when a timer queue
    actually starts (not on each item within a multi-timer sequence) —

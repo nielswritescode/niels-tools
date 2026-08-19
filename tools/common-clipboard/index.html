@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Common Clipboard — Niels' Tools</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="clipboard.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="../../index.html">&larr; All tools</a>
+  <header class="site-header">
+    <h1>Common Clipboard</h1>
+    <p class="tagline">Click a square to copy its text, right-click to edit, drag a snippet onto a category to sort it.</p>
+  </header>
+
+  <div class="clip-board" id="clipBoard"></div>
+</div>
+
+<div class="clip-modal-backdrop" id="clipModalBackdrop" hidden>
+  <div class="panel clip-modal">
+    <div class="row center" id="clipTypeRow">
+      <button type="button" class="pill clip-type-pill active" data-clip-type="snippet">Snippet</button>
+      <button type="button" class="pill clip-type-pill" data-clip-type="category">Category</button>
+    </div>
+
+    <div id="clipSnippetFields">
+      <div class="label">Text</div>
+      <textarea class="clip-textarea" id="clipTextarea" rows="6" placeholder="Type or paste text…"></textarea>
+    </div>
+
+    <div id="clipCategoryFields" hidden>
+      <div class="label">Category name</div>
+      <input type="text" class="clip-category-input" id="clipCategoryInput" placeholder="e.g. Work" maxlength="40">
+      <div class="label" style="margin-top:14px;">Color</div>
+      <div class="row" id="clipColorRow"></div>
+    </div>
+
+    <div class="row" style="margin-top:14px;">
+      <button type="button" class="btn-main" id="clipSaveBtn">Save</button>
+      <button type="button" class="btn-ghost" id="clipCancelBtn">Cancel</button>
+      <button type="button" class="btn-ghost clip-delete-btn" id="clipDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script src="clipboard.js"></script>
+</body>
+</html>

@@ -15,3 +15,4 @@ A small static site of personal tools, hosted on GitHub Pages.
 ## Tools
 
 - **Practice Timer** (`tools/practice-timer/`) — simple or multi-round countdown timer with custom sounds, volume, and durations (minutes or seconds). Settings persist in `localStorage`.
+- **Common Clipboard** (`tools/common-clipboard/`) — a grid of text snippets and bright-colored category labels; click a square to copy it, right-click to edit or delete it. Persists in `localStorage`.

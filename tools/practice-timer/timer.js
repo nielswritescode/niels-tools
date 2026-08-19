@@ -344,7 +344,7 @@
       timerSound = btn.dataset.timerSound;
       updateTimerSoundUI();
       saveSettings();
-      playTimerSound(); // instant feedback so picking between the 3 is actually usable
+      playTimerSound(); // instant feedback so picking between sounds is actually usable
     });
   });
   timerSoundPreviewBtn.addEventListener("click", () => {

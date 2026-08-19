@@ -27,6 +27,21 @@
 }
 .timer-sequence[hidden]{display:none;}
 .timer-multi-actions[hidden]{display:none;}
+.timer-running-sequence-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+/* Same glyph as #timerLoopBtn in the setup screen — the running view has no
+   other loop control visible, so this is the only way to tell mid-countdown
+   whether it'll repeat after the last item. */
+.timer-loop-indicator{
+  color:var(--accent);
+  font-size:20px;
+  line-height:1;
+}
 /* Its own accent-adjacent color rather than the main accent — the sequence
    squares read as their own thing at a glance, distinct from the mode pills
    and Return/Loop/Confirm buttons right next to them. */

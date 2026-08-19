@@ -74,6 +74,7 @@
   const timerConfirmBtn = document.getElementById("timerConfirmBtn");
   const timerRunningEl = document.getElementById("timerRunning");
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
+  const timerLoopIndicator = document.getElementById("timerLoopIndicator");
   const timerCountdownEl = document.getElementById("timerCountdown");
 
   // Practice timer state. timerMode, timerLoop, timerDurationMinutes and
@@ -403,6 +404,10 @@
     timerRunningEl.hidden = false;
     timerRunningSequenceEl.hidden = timerMode !== "multi";
     if (timerMode !== "multi") timerRunningSequenceEl.innerHTML = ""; // clear any squares left from a prior multi-mode run
+    // Loop can only be toggled from the setup screen, which is hidden for
+    // the whole run — this is the only place its state is visible while
+    // counting down, so fix it once per run rather than reacting live.
+    timerLoopIndicator.hidden = !(timerMode === "multi" && timerLoop);
     startCurrentTimerItem();
   }
 

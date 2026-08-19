@@ -1,6 +1,6 @@
 (function () {
   // ---- state ----
-  const TIMER_SOUNDS = ["chime", "bell", "beep"];
+  const TIMER_SOUNDS = ["chime", "bell", "beep", "gong", "ascend", "waves"];
   let timerSound = "chime";
   let timerVolume = 0.7; // 0..1, persisted — it's a preference, not session state
   let timerMode = "simple"; // 'simple' | 'multi' — also persisted
@@ -180,11 +180,12 @@
     return `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // Three deliberately different-sounding endings via Web Audio rather than
+  // Six deliberately different-sounding endings via Web Audio rather than
   // audio files — keeps the timer fully self-contained/offline. Each is
   // built from plain oscillator+gain "notes"; peak gain is scaled by
   // timerVolume (0..1) so the volume slider actually affects loudness
-  // rather than just clipping.
+  // rather than just clipping. chime/bell/beep are short (under ~2s); gong/
+  // ascend/waves are longer, ~5s endings for a bigger sense of completion.
   // A single AudioContext, created (or resumed) lazily the first time any
   // timer control is touched — and reused for every sound after that,
   // including the one triggered from setInterval when a countdown hits
@@ -207,10 +208,25 @@
     }
   }
 
+  // Oscillators currently scheduled by the last playTimerSound() call. With
+  // the ~5s gong/ascend/waves endings, clicking another sound pill (or
+  // Preview) mid-playback would otherwise stack a second sound on top of
+  // the first instead of replacing it — short-lived for chime/bell/beep,
+  // but audibly bad once sounds run this long.
+  let activeTimerOscillators = [];
+  function stopActiveTimerSound() {
+    const now = sharedAudioCtx ? sharedAudioCtx.currentTime : 0;
+    activeTimerOscillators.forEach((osc) => {
+      try { osc.stop(now); } catch (e) {} // already stopped/ended — fine
+    });
+    activeTimerOscillators = [];
+  }
+
   function playTimerSound() {
     try {
       const ctx = sharedAudioCtx;
       if (!ctx) return; // never primed by a gesture (e.g. Web Audio blocked) — skip silently
+      stopActiveTimerSound();
       const now = ctx.currentTime;
       const note = (freq, start, attack, decay, peak, type) => {
         const osc = ctx.createOscillator();
@@ -224,6 +240,7 @@
         osc.connect(gain).connect(ctx.destination);
         osc.start(t0);
         osc.stop(t0 + attack + decay + 0.05);
+        activeTimerOscillators.push(osc);
       };
       if (timerSound === "bell") {
         // A single resonant tone (fundamental + two quiet overtones) with a
@@ -237,6 +254,27 @@
         note(660, 0, 0.005, 0.25, 0.22, "square");
         note(660, 0.45, 0.005, 0.25, 0.22, "square");
         note(660, 0.9, 0.005, 0.25, 0.22, "square");
+      } else if (timerSound === "gong") {
+        // A deep strike with two quiet inharmonic overtones (not a clean
+        // integer-multiple series — that's what makes it read as a
+        // gong/singing-bowl rather than a bell) and a long ~4.8s decay.
+        note(196, 0, 0.02, 4.8, 0.36);
+        note(541, 0, 0.02, 3.2, 0.13);
+        note(803, 0, 0.02, 2.0, 0.08);
+      } else if (timerSound === "ascend") {
+        // A five-note rising run that resolves into a sustained final
+        // note — a bigger, ~4.8s "you're done" than the short chime.
+        note(392, 0.0, 0.02, 0.55, 0.24);
+        note(440, 0.55, 0.02, 0.55, 0.24);
+        note(523, 1.1, 0.02, 0.55, 0.24);
+        note(659, 1.65, 0.02, 0.55, 0.24);
+        note(784, 2.2, 0.03, 2.6, 0.32);
+      } else if (timerSound === "waves") {
+        // Three slow overlapping swells alternating between two close
+        // pitches — a gentle ambient pulse (~5s) instead of a sharp hit.
+        note(220, 0.0, 1.1, 1.5, 0.20);
+        note(247, 1.5, 1.1, 1.5, 0.20);
+        note(220, 3.0, 0.9, 1.3, 0.18);
       } else {
         // "chime" (default): two bright ascending sine notes.
         note(880, 0, 0.05, 0.9, 0.3);

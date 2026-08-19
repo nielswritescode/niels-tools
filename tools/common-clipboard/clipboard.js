@@ -49,6 +49,18 @@
     return null;
   }
 
+  // Shared by localStorage loads and file imports: normalizes every item and
+  // drops dangling references to categories that no longer exist (e.g.
+  // hand-edited storage, or a category removed from an imported file).
+  function normalizeEntries(list) {
+    const result = list.map(normalizeEntry).filter(Boolean);
+    const validCategoryIds = new Set(result.filter((e) => e.type === "category").map((e) => e.id));
+    result.forEach((e) => {
+      if (e.type === "snippet" && e.categoryId && !validCategoryIds.has(e.categoryId)) e.categoryId = null;
+    });
+    return result;
+  }
+
   function loadEntries() {
     let stored;
     try {
@@ -57,12 +69,7 @@
       return; // corrupted JSON — fall back to empty
     }
     if (!Array.isArray(stored)) return;
-    entries = stored.map(normalizeEntry).filter(Boolean);
-    // drop dangling references to categories that no longer exist (e.g. hand-edited storage)
-    const validCategoryIds = new Set(entries.filter((e) => e.type === "category").map((e) => e.id));
-    entries.forEach((e) => {
-      if (e.type === "snippet" && e.categoryId && !validCategoryIds.has(e.categoryId)) e.categoryId = null;
-    });
+    entries = normalizeEntries(stored);
   }
 
   function saveEntries() {
@@ -88,6 +95,9 @@
   const clipSaveBtn = document.getElementById("clipSaveBtn");
   const clipCancelBtn = document.getElementById("clipCancelBtn");
   const clipDeleteBtn = document.getElementById("clipDeleteBtn");
+  const clipExportBtn = document.getElementById("clipExportBtn");
+  const clipImportBtn = document.getElementById("clipImportBtn");
+  const clipImportInput = document.getElementById("clipImportInput");
 
   let modalType = "snippet";
   let modalColor = CATEGORY_COLORS[0];
@@ -388,6 +398,44 @@
     if (clipModalBackdrop.hidden) return;
     if (e.key === "Escape") closeModal();
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") clipSaveBtn.click();
+  });
+
+  // ---- export / import (snippets + categories together, one JSON file) ----
+  clipExportBtn.addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "common-clipboard.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  clipImportBtn.addEventListener("click", () => clipImportInput.click());
+
+  clipImportInput.addEventListener("change", () => {
+    const file = clipImportInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch (e) {
+        alert("That file isn't valid JSON.");
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        alert("That file doesn't look like a Common Clipboard export.");
+        return;
+      }
+      if (!confirm("Import will replace everything currently on this board. Continue?")) return;
+      entries = normalizeEntries(parsed);
+      saveEntries();
+      render();
+    };
+    reader.readAsText(file);
+    clipImportInput.value = ""; // allow re-selecting the same file later
   });
 
   // ---- init ----

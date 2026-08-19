@@ -15,6 +15,12 @@
     <p class="tagline">Click a square to copy its text, right-click to edit, drag a snippet onto a category to sort it.</p>
   </header>
 
+  <div class="row" style="margin-bottom:16px;">
+    <button type="button" class="btn-ghost" id="clipExportBtn">Download</button>
+    <button type="button" class="btn-ghost" id="clipImportBtn">Upload</button>
+    <input type="file" id="clipImportInput" accept="application/json,.json" hidden>
+  </div>
+
   <div class="clip-board" id="clipBoard"></div>
 </div>
 

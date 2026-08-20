@@ -395,7 +395,12 @@
     playTimerSound();
     timerQueueIndex++;
     if (timerQueueIndex >= timerActiveQueue.length) {
-      if (timerLoop) {
+      // timerLoop is only exposed via the Loop button, which is hidden
+      // outside multi mode (see timerMultiActions in updateTimerModeUI) —
+      // without this mode check, enabling it in multi and then switching to
+      // simple makes simple loop forever with no visible control to turn it
+      // off.
+      if (timerLoop && timerMode === "multi") {
         timerQueueIndex = 0;
       } else {
         returnToTimerPicker();

@@ -1,0 +1,132 @@
+.mailer-banner{
+  display:none;
+  background:color-mix(in srgb, #e0a52d 18%, var(--panel));
+  border:1px solid #e0a52d;
+  color:var(--ink);
+  border-radius:14px;
+  padding:16px 20px;
+  margin-bottom:16px;
+  font-size:13px;
+  line-height:1.6;
+}
+.mailer-banner.visible{display:block;}
+.mailer-banner code{
+  background:var(--panel-2);
+  border-radius:6px;
+  padding:2px 6px;
+  font-size:12px;
+}
+
+.mailer-section-title{
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  font-weight:700;
+  font-size:15px;
+  margin:0 0 14px;
+}
+
+.mailer-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:14px;
+}
+.mailer-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:10px 12px;
+}
+.mailer-item-main{flex:1; min-width:0;}
+.mailer-item-name{font-weight:600; font-size:13px;}
+.mailer-item-sub{color:var(--ink-dim); font-size:12px;}
+.mailer-item-del{
+  border:none;
+  background:transparent;
+  color:var(--ink-dim);
+  cursor:pointer;
+  font-size:16px;
+  line-height:1;
+  padding:4px 6px;
+  border-radius:6px;
+}
+.mailer-item-del:hover{color:#e6544d; background:color-mix(in srgb, #e6544d 12%, transparent);}
+.mailer-empty{color:var(--ink-dim); font-size:13px; margin-top:10px;}
+
+.mailer-checkbox-grid{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+.mailer-checkbox-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:1px solid var(--line);
+  background:var(--panel-2);
+  border-radius:999px;
+  padding:6px 12px 6px 8px;
+  font-size:13px;
+  cursor:pointer;
+  user-select:none;
+}
+.mailer-checkbox-pill input{accent-color:var(--accent); cursor:pointer;}
+.mailer-checkbox-pill:has(input:checked){border-color:var(--accent);}
+
+input[type="text"].mailer-input,
+input[type="email"].mailer-input{
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  color:var(--ink);
+  border-radius:10px;
+  padding:9px 12px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+  flex:1;
+  min-width:160px;
+}
+input.mailer-input:focus-visible{outline:2px solid var(--accent);}
+
+.mailer-textarea{
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  color:var(--ink);
+  border-radius:10px;
+  padding:12px;
+  font-size:14px;
+  font-family:'Inter',sans-serif;
+  width:100%;
+  min-height:160px;
+  resize:vertical;
+}
+.mailer-textarea:focus-visible{outline:2px solid var(--accent);}
+
+select.mailer-select{
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  color:var(--ink);
+  border-radius:10px;
+  padding:9px 12px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+  flex:1;
+  min-width:160px;
+}
+
+.mailer-status{
+  margin-top:12px;
+  font-size:13px;
+  line-height:1.5;
+}
+.mailer-status.error{color:#e6544d;}
+.mailer-status.success{color:var(--accent);}
+
+.mailer-group-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}

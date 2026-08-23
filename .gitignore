@@ -1,2 +1,4 @@
 /.claude
 secrets.env
+tools/group-mailer/data.json
+__pycache__/

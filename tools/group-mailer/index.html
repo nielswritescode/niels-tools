@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Group Mailer — Niels' Tools</title>
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="mailer.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="../../index.html">&larr; All tools</a>
+  <header class="site-header">
+    <h1>Group Mailer</h1>
+    <p class="tagline">Add contacts, organize them into groups, and send a quick email to everyone in a group.</p>
+  </header>
+
+  <div class="mailer-banner" id="mailerBanner">
+    Can't reach the local mail server. Start it from the project root with:
+    <br><code>python3 tools/group-mailer/server.py</code>
+    <br>then reload this page. Contacts, groups, and sending all run through that local server so your SMTP password never leaves your machine.
+  </div>
+
+  <div class="panel">
+    <h2 class="mailer-section-title">Contacts</h2>
+    <form class="row" id="contactForm">
+      <input type="text" class="mailer-input" id="contactName" placeholder="Name" required>
+      <input type="email" class="mailer-input" id="contactEmail" placeholder="Email" required>
+      <button type="submit" class="btn-main">Add contact</button>
+    </form>
+    <div class="mailer-list" id="contactList"></div>
+    <p class="mailer-empty" id="contactEmpty" hidden>No contacts yet — add one above.</p>
+  </div>
+
+  <div class="panel">
+    <h2 class="mailer-section-title">Groups</h2>
+    <form class="row" id="groupForm">
+      <input type="text" class="mailer-input" id="groupName" placeholder="Group name" required>
+      <button type="submit" class="btn-main">Create group</button>
+    </form>
+    <div class="mailer-checkbox-grid" id="groupNewMembers"></div>
+    <p class="mailer-empty" id="groupNewEmpty" hidden>Add contacts first, then pick who's in this group.</p>
+
+    <div class="mailer-list" id="groupList" style="margin-top:22px;"></div>
+    <p class="mailer-empty" id="groupEmpty" hidden>No groups yet — create one above.</p>
+  </div>
+
+  <div class="panel">
+    <h2 class="mailer-section-title">Send</h2>
+    <div class="row">
+      <div class="label">Group</div>
+      <select class="mailer-select" id="sendGroup"></select>
+    </div>
+    <div class="row">
+      <div class="label">Title</div>
+      <input type="text" class="mailer-input" id="sendSubject" placeholder="Subject">
+    </div>
+    <div class="row">
+      <div class="label">Content</div>
+      <textarea class="mailer-textarea" id="sendBody" placeholder="Write your message..."></textarea>
+    </div>
+    <div class="row">
+      <button type="button" class="btn-main" id="sendBtn">Send email</button>
+    </div>
+    <p class="mailer-status" id="sendStatus"></p>
+  </div>
+</div>
+<script src="mailer.js"></script>
+</body>
+</html>

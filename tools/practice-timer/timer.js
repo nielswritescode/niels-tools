@@ -147,6 +147,7 @@
     timerAddDurationBtn.hidden = timerSequenceBuildMode;
     timerRemoveDurationBtn.hidden = timerSequenceBuildMode;
     timerAddSequenceBtn.classList.toggle("active", timerSequenceBuildMode);
+    renderSavedTimersRow();
   }
 
   function updateTimerModeUI() {
@@ -159,9 +160,8 @@
       timerSequenceBuildMode = false;
       timerSubSequenceItems = [];
     }
-    updateTimerSequenceBuildUI();
+    updateTimerSequenceBuildUI(); // also renders the saved-timers row
     renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
-    renderSavedTimersRow();
   }
   timerModePills.forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -217,7 +217,7 @@
       `<button type="button" class="pill timer-duration-btn timer-saved-btn" data-index="${i}">${escapeHtml(preset.name)}</button>`
     )).join("");
     timerSavedRow.classList.toggle("remove-mode", timerRemoveMode);
-    timerSavedWrap.hidden = timerMode !== "multi" || timerSavedPresets.length === 0;
+    timerSavedWrap.hidden = timerMode !== "multi" || timerSequenceBuildMode || timerSavedPresets.length === 0;
     if (animateLastIn && timerSavedRow.lastElementChild) {
       timerSavedRow.lastElementChild.classList.add("entering");
     }
@@ -296,6 +296,7 @@
     timerRemoveMode = false;
     timerRemoveDurationBtn.classList.remove("active");
     timerDurationRow.classList.remove("remove-mode");
+    timerSavedRow.classList.remove("remove-mode");
     timerSequenceBuildMode = !timerSequenceBuildMode;
     timerSubSequenceItems = [];
     renderTimerSquares(timerSubSequenceEl, timerSubSequenceItems, -1);

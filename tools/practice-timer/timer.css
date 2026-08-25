@@ -26,6 +26,8 @@
   gap:8px;
 }
 .timer-sequence[hidden]{display:none;}
+.timer-saved-wrap{width:100%;}
+.timer-saved-wrap[hidden]{display:none;}
 .timer-multi-actions[hidden]{display:none;}
 .timer-sequence-build[hidden]{display:none;}
 .timer-sequence-build{
@@ -149,6 +151,18 @@
   width:100%;
 }
 .timer-add-form #timerAddValueInput{width:100%; text-align:center;}
+.timer-add-form #timerSaveNameInput{
+  width:100%;
+  text-align:center;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  color:var(--ink);
+  border-radius:999px;
+  padding:7px 12px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+}
+.timer-add-form #timerSaveNameInput:focus-visible{outline:2px solid var(--accent);}
 
 /* Return/Loop/Confirm read as icons rather than text pills — square-ish and
    a bit larger so a single glyph doesn't look lost. */

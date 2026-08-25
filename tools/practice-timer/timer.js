@@ -17,6 +17,9 @@
     { value: 25, unit: "minutes" },
     { value: 30, unit: "minutes" },
   ];
+  // Named multi-timer sequences saved via the Save button for quick reuse —
+  // each is {name, items: [{value, unit}, ...], loop}, persisted.
+  let timerSavedPresets = [];
 
   // ---- persisted settings ----
   const SETTINGS_KEY = "nielsTools:practiceTimer";
@@ -43,6 +46,19 @@
     }
     if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
     if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
+    if (
+      Array.isArray(stored.timerSavedPresets) &&
+      stored.timerSavedPresets.every((p) => (
+        p && typeof p.name === "string" && p.name.length > 0 &&
+        Array.isArray(p.items) && p.items.length > 0 &&
+        p.items.every((d) => (
+          d && typeof d.value === "number" && d.value >= 1 && d.value <= 180 && TIMER_DURATION_UNITS.includes(d.unit)
+        )) &&
+        typeof p.loop === "boolean"
+      ))
+    ) {
+      timerSavedPresets = stored.timerSavedPresets;
+    }
   }
 
   function saveSettings() {
@@ -53,6 +69,7 @@
         timerDurations,
         timerMode,
         timerLoop,
+        timerSavedPresets,
       }));
     } catch (e) {
       // storage full or unavailable (e.g. private browsing) — settings
@@ -83,12 +100,19 @@
   const timerAddUnitPills = document.querySelectorAll(".timer-add-unit-pill");
   const timerAddValueInput = document.getElementById("timerAddValueInput");
   const timerAddCancelBtn = document.getElementById("timerAddCancelBtn");
+  const timerSavedWrap = document.getElementById("timerSavedWrap");
+  const timerSavedRow = document.getElementById("timerSavedRow");
+  const timerSaveDialog = document.getElementById("timerSaveDialog");
+  const timerSaveForm = document.getElementById("timerSaveForm");
+  const timerSaveNameInput = document.getElementById("timerSaveNameInput");
+  const timerSaveCancelBtn = document.getElementById("timerSaveCancelBtn");
   const practiceFlashEl = document.getElementById("practiceFlash");
   const timerSetup = document.getElementById("timerSetup");
   const timerSequenceEl = document.getElementById("timerSequence");
   const timerMultiActions = document.getElementById("timerMultiActions");
   const timerReturnBtn = document.getElementById("timerReturnBtn");
   const timerLoopBtn = document.getElementById("timerLoopBtn");
+  const timerSaveBtn = document.getElementById("timerSaveBtn");
   const timerConfirmBtn = document.getElementById("timerConfirmBtn");
   const timerRunningEl = document.getElementById("timerRunning");
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
@@ -137,6 +161,7 @@
     }
     updateTimerSequenceBuildUI();
     renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
+    renderSavedTimersRow();
   }
   timerModePills.forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -179,6 +204,49 @@
     }
   }
 
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  // Renders the "Saved timers" row of named multi-mode presets. Only shown
+  // in multi mode, and only when at least one preset has been saved.
+  function renderSavedTimersRow(animateLastIn) {
+    timerSavedRow.innerHTML = timerSavedPresets.map((preset, i) => (
+      `<button type="button" class="pill timer-duration-btn timer-saved-btn" data-index="${i}">${escapeHtml(preset.name)}</button>`
+    )).join("");
+    timerSavedRow.classList.toggle("remove-mode", timerRemoveMode);
+    timerSavedWrap.hidden = timerMode !== "multi" || timerSavedPresets.length === 0;
+    if (animateLastIn && timerSavedRow.lastElementChild) {
+      timerSavedRow.lastElementChild.classList.add("entering");
+    }
+  }
+
+  // Loading/removing a saved preset, mirroring the timerDurationRow
+  // delegated listener below — shares the "Remove timer" toggle rather than
+  // getting its own remove mode.
+  timerSavedRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".timer-saved-btn");
+    if (!btn) return;
+    const index = Number(btn.dataset.index);
+    const preset = timerSavedPresets[index];
+    if (!preset) return;
+    if (timerRemoveMode) {
+      btn.classList.add("removing");
+      btn.addEventListener("animationend", () => {
+        timerSavedPresets.splice(index, 1);
+        renderSavedTimersRow();
+        saveSettings();
+      }, { once: true });
+      return;
+    }
+    primeTimerAudio();
+    timerLoop = preset.loop;
+    timerLoopBtn.classList.toggle("active", timerLoop);
+    startTimerQueue(preset.items.map((item) => ({ ...item })));
+  });
+
   // Single delegated listener since the chips are re-rendered wholesale on
   // every add/remove rather than getting individual listeners each time.
   timerDurationRow.addEventListener("click", (e) => {
@@ -218,6 +286,7 @@
     timerRemoveMode = !timerRemoveMode;
     timerRemoveDurationBtn.classList.toggle("active", timerRemoveMode);
     timerDurationRow.classList.toggle("remove-mode", timerRemoveMode);
+    timerSavedRow.classList.toggle("remove-mode", timerRemoveMode);
   });
 
   timerAddSequenceBtn.addEventListener("click", () => {
@@ -310,6 +379,32 @@
     renderTimerDurationRow(true);
     saveSettings();
     timerAddDialog.close();
+  });
+
+  timerSaveBtn.addEventListener("click", () => {
+    if (timerQueuedItems.length === 0) return; // nothing built yet to save
+    timerSaveNameInput.value = "";
+    timerSaveDialog.showModal();
+    timerSaveNameInput.focus();
+  });
+  timerSaveCancelBtn.addEventListener("click", () => timerSaveDialog.close());
+  timerSaveDialog.addEventListener("click", (e) => {
+    if (e.target === timerSaveDialog) timerSaveDialog.close();
+  });
+  timerSaveForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const typed = timerSaveNameInput.value.trim();
+    // Falls back to a name built from the sequence itself (e.g. "5m + 10m")
+    // so leaving the field blank still produces something recognizable.
+    const name = typed || timerQueuedItems.map(timerItemLabel).join(" + ");
+    timerSavedPresets.push({
+      name,
+      items: timerQueuedItems.map((item) => ({ ...item })),
+      loop: timerLoop,
+    });
+    renderSavedTimersRow(true);
+    saveSettings();
+    timerSaveDialog.close();
   });
 
   function formatMinSec(totalSeconds) {
@@ -573,7 +668,7 @@
   timerCountdownEl.addEventListener("click", returnToTimerPicker);
 
   // ---- init ----
-  updateTimerModeUI();
+  updateTimerModeUI(); // also renders the saved-timers row
   timerLoopBtn.classList.toggle("active", timerLoop);
   renderTimerDurationRow();
   renderTimerRepeatRow();

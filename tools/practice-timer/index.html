@@ -30,10 +30,15 @@
           <button type="button" class="pill" id="timerRemoveDurationBtn">Remove timer</button>
           <button type="button" class="pill" id="timerAddSequenceBtn" hidden>Add sequence</button>
         </div>
+        <div class="timer-saved-wrap" id="timerSavedWrap" hidden>
+          <div class="label">Saved timers</div>
+          <div class="row timer-duration-row center" id="timerSavedRow"></div>
+        </div>
         <div class="timer-sequence" id="timerSequence" hidden></div>
         <div class="row timer-multi-actions center" id="timerMultiActions" hidden>
           <button type="button" class="btn-ghost timer-symbol-btn" id="timerReturnBtn" aria-label="Return — undo last">&#10005;</button>
           <button type="button" class="pill timer-symbol-btn" id="timerLoopBtn" aria-label="Loop">&#8734;</button>
+          <button type="button" class="btn-ghost timer-symbol-btn" id="timerSaveBtn" aria-label="Save timer">&#128190;</button>
           <button type="button" class="btn-main timer-symbol-btn" id="timerConfirmBtn" aria-label="Confirm">&#10003;</button>
         </div>
 
@@ -91,6 +96,19 @@
       <div class="row center">
         <button type="button" class="btn-ghost" id="timerAddCancelBtn">Cancel</button>
         <button type="submit" class="btn-main">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="timer-add-dialog" id="timerSaveDialog">
+    <form class="timer-add-form" id="timerSaveForm">
+      <div class="label">Save timer</div>
+      <div class="row center">
+        <input type="text" id="timerSaveNameInput" maxlength="40" placeholder="Name this timer">
+      </div>
+      <div class="row center">
+        <button type="button" class="btn-ghost" id="timerSaveCancelBtn">Cancel</button>
+        <button type="submit" class="btn-main">Save</button>
       </div>
     </form>
   </dialog>

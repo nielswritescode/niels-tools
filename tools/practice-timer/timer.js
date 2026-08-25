@@ -20,6 +20,9 @@
   // Named multi-timer sequences saved via the Save button for quick reuse —
   // each is {name, items: [{value, unit}, ...], loop}, persisted.
   let timerSavedPresets = [];
+  // Lifetime practice stats — only incremented when a timer segment actually
+  // reaches zero (see recordTimerCompletion), never for one stopped early.
+  let timerStats = { count: 0, totalSeconds: 0 };
 
   // ---- persisted settings ----
   const SETTINGS_KEY = "nielsTools:practiceTimer";
@@ -59,6 +62,13 @@
     ) {
       timerSavedPresets = stored.timerSavedPresets;
     }
+    if (
+      stored.timerStats && typeof stored.timerStats === "object" &&
+      typeof stored.timerStats.count === "number" && stored.timerStats.count >= 0 &&
+      typeof stored.timerStats.totalSeconds === "number" && stored.timerStats.totalSeconds >= 0
+    ) {
+      timerStats = { count: stored.timerStats.count, totalSeconds: stored.timerStats.totalSeconds };
+    }
   }
 
   function saveSettings() {
@@ -70,6 +80,7 @@
         timerMode,
         timerLoop,
         timerSavedPresets,
+        timerStats,
       }));
     } catch (e) {
       // storage full or unavailable (e.g. private browsing) — settings
@@ -118,6 +129,8 @@
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerLoopIndicator = document.getElementById("timerLoopIndicator");
   const timerCountdownEl = document.getElementById("timerCountdown");
+  const timerStatsCountEl = document.getElementById("timerStatsCount");
+  const timerStatsDurationEl = document.getElementById("timerStatsDuration");
 
   // Practice timer state. timerMode, timerLoop and timerDurations are
   // declared above and persisted — they're preferences. The rest here is
@@ -414,6 +427,33 @@
     return `${m}:${String(s).padStart(2, "0")}`;
   }
 
+  // Human-readable lifetime total (e.g. "1h 05m", "12m 03s", "45s") — unlike
+  // formatMinSec this drops the seconds entirely once there are hours, since
+  // a lifetime total doesn't need second-level precision.
+  function formatDuration(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+    if (m > 0) return `${m}m ${String(s).padStart(2, "0")}s`;
+    return `${s}s`;
+  }
+
+  function updateTimerStatsUI() {
+    timerStatsCountEl.textContent = String(timerStats.count);
+    timerStatsDurationEl.textContent = formatDuration(timerStats.totalSeconds);
+  }
+
+  // Only called when a timer segment actually reaches zero (see tickTimer) —
+  // stopping a countdown early via timerCountdownEl never reaches here, so
+  // incomplete timers never inflate the stats.
+  function recordTimerCompletion(item) {
+    timerStats.count++;
+    timerStats.totalSeconds += timerItemSeconds(item);
+    updateTimerStatsUI();
+    saveSettings();
+  }
+
   // Six deliberately different-sounding endings via Web Audio rather than
   // audio files — keeps the timer fully self-contained/offline. Each is
   // built from plain oscillator+gain "notes"; peak gain is scaled by
@@ -579,6 +619,7 @@
     }
     stopTimerInterval();
     playTimerSound();
+    recordTimerCompletion(timerActiveQueue[timerQueueIndex]);
     timerQueueIndex++;
     if (timerQueueIndex >= timerActiveQueue.length) {
       // timerLoop is only exposed via the Loop button, which is hidden
@@ -675,4 +716,5 @@
   renderTimerRepeatRow();
   updateTimerSoundUI();
   updateTimerVolumeUI();
+  updateTimerStatsUI();
 })();

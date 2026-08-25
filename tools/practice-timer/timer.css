@@ -27,6 +27,30 @@
 }
 .timer-sequence[hidden]{display:none;}
 .timer-multi-actions[hidden]{display:none;}
+.timer-sequence-build[hidden]{display:none;}
+.timer-sequence-build{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  width:100%;
+}
+.timer-repeat-row{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:6px;
+}
+.timer-repeat-btn{
+  width:36px;
+  height:36px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+}
+#timerAddSequenceBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
 .timer-running-sequence-row{
   display:flex;
   align-items:center;

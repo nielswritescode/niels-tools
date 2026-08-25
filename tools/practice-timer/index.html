@@ -28,12 +28,22 @@
         <div class="row timer-duration-controls center">
           <button type="button" class="pill" id="timerAddDurationBtn">+ Add timer</button>
           <button type="button" class="pill" id="timerRemoveDurationBtn">Remove timer</button>
+          <button type="button" class="pill" id="timerAddSequenceBtn" hidden>Add sequence</button>
         </div>
         <div class="timer-sequence" id="timerSequence" hidden></div>
         <div class="row timer-multi-actions center" id="timerMultiActions" hidden>
           <button type="button" class="btn-ghost timer-symbol-btn" id="timerReturnBtn" aria-label="Return — undo last">&#10005;</button>
           <button type="button" class="pill timer-symbol-btn" id="timerLoopBtn" aria-label="Loop">&#8734;</button>
           <button type="button" class="btn-main timer-symbol-btn" id="timerConfirmBtn" aria-label="Confirm">&#10003;</button>
+        </div>
+
+        <div class="timer-sequence-build" id="timerSequenceBuild" hidden>
+          <div class="label">Tap timers to build a sequence, then press a number to repeat it into the multi timer</div>
+          <div class="timer-sequence" id="timerSubSequence"></div>
+          <div class="row timer-multi-actions center">
+            <button type="button" class="btn-ghost timer-symbol-btn" id="timerSubSequenceReturnBtn" aria-label="Return — undo last">&#10005;</button>
+            <div class="timer-repeat-row" id="timerRepeatRow"></div>
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@
   let timerMode = "simple"; // 'simple' | 'multi' — also persisted
   let timerLoop = false;
   const TIMER_DURATION_UNITS = ["minutes", "seconds"];
+  const MAX_MULTI_QUEUE = 99; // hard cap on how many items the multi-timer queue can hold
   // The picker's pool of presets, each with its own unit — editable via the
   // Add timer / Remove timer controls, also persisted.
   let timerDurations = [
@@ -72,6 +73,11 @@
   const timerDurationRow = document.getElementById("timerDurationRow");
   const timerAddDurationBtn = document.getElementById("timerAddDurationBtn");
   const timerRemoveDurationBtn = document.getElementById("timerRemoveDurationBtn");
+  const timerAddSequenceBtn = document.getElementById("timerAddSequenceBtn");
+  const timerSequenceBuildEl = document.getElementById("timerSequenceBuild");
+  const timerSubSequenceEl = document.getElementById("timerSubSequence");
+  const timerSubSequenceReturnBtn = document.getElementById("timerSubSequenceReturnBtn");
+  const timerRepeatRow = document.getElementById("timerRepeatRow");
   const timerAddDialog = document.getElementById("timerAddDialog");
   const timerAddForm = document.getElementById("timerAddForm");
   const timerAddUnitPills = document.querySelectorAll(".timer-add-unit-pill");
@@ -97,6 +103,8 @@
   // countdown itself still ticks in seconds internally so it can show
   // MM:SS.
   let timerQueuedItems = []; // being built in multi mode, pre-Confirm
+  let timerSequenceBuildMode = false; // toggled by "Add sequence" — building a sub-sequence to repeat and insert
+  let timerSubSequenceItems = []; // the sub-sequence currently being built
   let timerRunningNow = false;
   let timerIntervalId = null;
   let timerActiveQueue = [];
@@ -104,13 +112,30 @@
   let timerRemainingSeconds = 0;
   let timerRemoveMode = false; // toggled by "Remove timer" — clicking a chip deletes it instead of starting/queueing it
 
+  // Hides the normal multi controls while a sub-sequence is being built so
+  // there's one clear set of actions on screen at a time; also governed by
+  // timerMode since none of this applies outside multi mode at all.
+  function updateTimerSequenceBuildUI() {
+    const isMulti = timerMode === "multi";
+    timerSequenceBuildEl.hidden = !timerSequenceBuildMode;
+    timerSequenceEl.hidden = !isMulti || timerSequenceBuildMode;
+    timerMultiActions.hidden = !isMulti || timerSequenceBuildMode;
+    timerAddDurationBtn.hidden = timerSequenceBuildMode;
+    timerRemoveDurationBtn.hidden = timerSequenceBuildMode;
+    timerAddSequenceBtn.classList.toggle("active", timerSequenceBuildMode);
+  }
+
   function updateTimerModeUI() {
     timerModePills.forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.timerMode === timerMode);
     });
     const isMulti = timerMode === "multi";
-    timerSequenceEl.hidden = !isMulti;
-    timerMultiActions.hidden = !isMulti;
+    timerAddSequenceBtn.hidden = !isMulti;
+    if (!isMulti && timerSequenceBuildMode) {
+      timerSequenceBuildMode = false;
+      timerSubSequenceItems = [];
+    }
+    updateTimerSequenceBuildUI();
     renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
   }
   timerModePills.forEach((btn) => {
@@ -174,9 +199,16 @@
       return;
     }
     primeTimerAudio();
-    if (timerMode === "simple") {
+    if (timerSequenceBuildMode) {
+      // Same MAX_MULTI_QUEUE cap as the main queue — the sub-sequence will
+      // be multiplied into it, so it can never itself hold more than the cap.
+      if (timerSubSequenceItems.length + timerQueuedItems.length >= MAX_MULTI_QUEUE) return;
+      timerSubSequenceItems.push(item);
+      renderTimerSquares(timerSubSequenceEl, timerSubSequenceItems, -1);
+    } else if (timerMode === "simple") {
       startTimerQueue([item]);
     } else {
+      if (timerQueuedItems.length >= MAX_MULTI_QUEUE) return;
       timerQueuedItems.push(item);
       renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
     }
@@ -186,6 +218,64 @@
     timerRemoveMode = !timerRemoveMode;
     timerRemoveDurationBtn.classList.toggle("active", timerRemoveMode);
     timerDurationRow.classList.toggle("remove-mode", timerRemoveMode);
+  });
+
+  timerAddSequenceBtn.addEventListener("click", () => {
+    if (timerRunningNow) return;
+    // Mutually exclusive with remove mode — both repurpose clicks on the
+    // duration chips, so only one can be active at a time.
+    timerRemoveMode = false;
+    timerRemoveDurationBtn.classList.remove("active");
+    timerDurationRow.classList.remove("remove-mode");
+    timerSequenceBuildMode = !timerSequenceBuildMode;
+    timerSubSequenceItems = [];
+    renderTimerSquares(timerSubSequenceEl, timerSubSequenceItems, -1);
+    updateTimerSequenceBuildUI();
+  });
+
+  timerSubSequenceReturnBtn.addEventListener("click", () => {
+    if (timerSubSequenceItems.length > 0) {
+      timerSubSequenceItems.pop();
+      renderTimerSquares(timerSubSequenceEl, timerSubSequenceItems, -1);
+    } else {
+      timerSequenceBuildMode = false;
+      updateTimerSequenceBuildUI();
+    }
+  });
+
+  function renderTimerRepeatRow() {
+    timerRepeatRow.innerHTML = Array.from({ length: 9 }, (_, i) => i + 1).map((n) => (
+      `<button type="button" class="pill timer-repeat-btn" data-repeat="${n}">${n}</button>`
+    )).join("");
+  }
+
+  // Multiplies the sub-sequence by `count` and appends it into the main
+  // multi-timer queue, clamped so the queue never exceeds MAX_MULTI_QUEUE —
+  // clamped to whole copies of the sub-sequence, not a partial one.
+  function applySequenceRepeat(count) {
+    if (timerSubSequenceItems.length === 0) return;
+    const maxCopies = Math.floor((MAX_MULTI_QUEUE - timerQueuedItems.length) / timerSubSequenceItems.length);
+    const copies = Math.min(count, maxCopies);
+    if (copies <= 0) return;
+    for (let i = 0; i < copies; i++) timerQueuedItems.push(...timerSubSequenceItems);
+    timerSubSequenceItems = [];
+    timerSequenceBuildMode = false;
+    updateTimerSequenceBuildUI();
+    renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
+  }
+
+  timerRepeatRow.addEventListener("click", (e) => {
+    const btn = e.target.closest(".timer-repeat-btn");
+    if (!btn) return;
+    primeTimerAudio();
+    applySequenceRepeat(Number(btn.dataset.repeat));
+  });
+
+  // Lets "press a number" mean an actual keypress, not just tapping a pill —
+  // only listens while a sub-sequence is actively being built.
+  document.addEventListener("keydown", (e) => {
+    if (!timerSequenceBuildMode) return;
+    if (e.key >= "1" && e.key <= "9") applySequenceRepeat(Number(e.key));
   });
 
   let timerAddUnit = "minutes"; // remembered across opens in this session for convenience, not persisted
@@ -486,6 +576,7 @@
   updateTimerModeUI();
   timerLoopBtn.classList.toggle("active", timerLoop);
   renderTimerDurationRow();
+  renderTimerRepeatRow();
   updateTimerSoundUI();
   updateTimerVolumeUI();
 })();

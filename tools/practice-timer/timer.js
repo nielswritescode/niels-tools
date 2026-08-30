@@ -194,6 +194,13 @@
     return item.unit === "seconds" ? item.value : item.value * 60;
   }
 
+  // Keeps the multi-timer queue ordered shortest-to-longest as items are
+  // added, so building a sequence doesn't require clicking chips in length
+  // order to get a sensible ramp.
+  function sortTimerQueue(items) {
+    items.sort((a, b) => timerItemSeconds(a) - timerItemSeconds(b));
+  }
+
   // Renders a row of duration squares — reused for both the multi-mode
   // sequence builder (activeIndex -1, nothing marked done) and the running
   // view (the in-progress item highlighted, earlier ones dimmed as done).
@@ -291,6 +298,7 @@
     } else {
       if (timerQueuedItems.length >= MAX_MULTI_QUEUE) return;
       timerQueuedItems.push(item);
+      sortTimerQueue(timerQueuedItems);
       renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
     }
   });
@@ -341,6 +349,7 @@
     const copies = Math.min(count, maxCopies);
     if (copies <= 0) return;
     for (let i = 0; i < copies; i++) timerQueuedItems.push(...timerSubSequenceItems);
+    sortTimerQueue(timerQueuedItems);
     timerSubSequenceItems = [];
     timerSequenceBuildMode = false;
     updateTimerSequenceBuildUI();

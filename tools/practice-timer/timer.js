@@ -89,6 +89,7 @@
   }
 
   loadSettings();
+  sortTimerDurations(); // in case persisted durations predate this ordering or are otherwise out of order
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
@@ -194,11 +195,10 @@
     return item.unit === "seconds" ? item.value : item.value * 60;
   }
 
-  // Keeps the multi-timer queue ordered shortest-to-longest as items are
-  // added, so building a sequence doesn't require clicking chips in length
-  // order to get a sensible ramp.
-  function sortTimerQueue(items) {
-    items.sort((a, b) => timerItemSeconds(a) - timerItemSeconds(b));
+  // Keeps the picker's pool of duration chips (timerDurations) ordered
+  // shortest-to-longest, regardless of the order they were added in.
+  function sortTimerDurations() {
+    timerDurations.sort((a, b) => timerItemSeconds(a) - timerItemSeconds(b));
   }
 
   // Renders a row of duration squares — reused for both the multi-mode
@@ -211,16 +211,20 @@
     }).join("");
   }
 
-  // Renders the picker's pool of duration chips from timerDurations.
-  // animateLastIn plays a pop-in animation on the newest chip (just added
-  // via the dialog) rather than instantly appearing with the rest.
-  function renderTimerDurationRow(animateLastIn) {
+  // Renders the picker's pool of duration chips from timerDurations, kept
+  // sorted shortest-to-longest by sortTimerDurations. animateItem plays a
+  // pop-in animation on that chip (the one just added via the dialog,
+  // wherever sorting landed it) rather than instantly appearing with the
+  // rest.
+  function renderTimerDurationRow(animateItem) {
     timerDurationRow.innerHTML = timerDurations.map((item, i) => (
       `<button type="button" class="pill timer-duration-btn" data-index="${i}">${timerItemLabel(item)}</button>`
     )).join("");
     timerDurationRow.classList.toggle("remove-mode", timerRemoveMode);
-    if (animateLastIn && timerDurationRow.lastElementChild) {
-      timerDurationRow.lastElementChild.classList.add("entering");
+    if (animateItem) {
+      const animateIndex = timerDurations.indexOf(animateItem);
+      const el = timerDurationRow.children[animateIndex];
+      if (el) el.classList.add("entering");
     }
   }
 
@@ -298,7 +302,6 @@
     } else {
       if (timerQueuedItems.length >= MAX_MULTI_QUEUE) return;
       timerQueuedItems.push(item);
-      sortTimerQueue(timerQueuedItems);
       renderTimerSquares(timerSequenceEl, timerQueuedItems, -1);
     }
   });
@@ -349,7 +352,6 @@
     const copies = Math.min(count, maxCopies);
     if (copies <= 0) return;
     for (let i = 0; i < copies; i++) timerQueuedItems.push(...timerSubSequenceItems);
-    sortTimerQueue(timerQueuedItems);
     timerSubSequenceItems = [];
     timerSequenceBuildMode = false;
     updateTimerSequenceBuildUI();
@@ -398,8 +400,10 @@
     e.preventDefault();
     const parsed = parseInt(timerAddValueInput.value, 10);
     const value = Number.isFinite(parsed) ? clamp(parsed, 1, 180) : 5;
-    timerDurations.push({ value, unit: timerAddUnit });
-    renderTimerDurationRow(true);
+    const newItem = { value, unit: timerAddUnit };
+    timerDurations.push(newItem);
+    sortTimerDurations();
+    renderTimerDurationRow(newItem);
     saveSettings();
     timerAddDialog.close();
   });

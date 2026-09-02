@@ -137,9 +137,7 @@
   // declared above and persisted — they're preferences. The rest here is
   // deliberately NOT persisted: you want a clean slate on a fresh visit
   // rather than resuming mid-countdown or with a stale queue. Queue items
-  // are {value, unit} objects, same shape as timerDurations entries; the
-  // countdown itself still ticks in seconds internally so it can show
-  // MM:SS.
+  // are {value, unit} objects, same shape as timerDurations entries.
   let timerQueuedItems = []; // being built in multi mode, pre-Confirm
   let timerSequenceBuildMode = false; // toggled by "Add sequence" — building a sub-sequence to repeat and insert
   let timerSubSequenceItems = []; // the sub-sequence currently being built
@@ -147,7 +145,12 @@
   let timerIntervalId = null;
   let timerActiveQueue = [];
   let timerQueueIndex = 0;
-  let timerRemainingSeconds = 0;
+  // Absolute end time (on timerClockNow()'s clock) for each item in
+  // timerActiveQueue, computed once per pass by scheduleQueueSounds(). The
+  // countdown display recomputes "remaining" from this every tick instead
+  // of decrementing a counter, so a delayed/throttled tick (e.g. the screen
+  // just got locked) self-corrects instead of drifting.
+  let timerItemEndTimes = [];
   let timerRemoveMode = false; // toggled by "Remove timer" — clicking a chip deletes it instead of starting/queueing it
 
   // Hides the normal multi controls while a sub-sequence is being built so
@@ -475,9 +478,10 @@
   // ascend/waves are longer, ~5s endings for a bigger sense of completion.
   // A single AudioContext, created (or resumed) lazily the first time any
   // timer control is touched — and reused for every sound after that,
-  // including the one triggered from setInterval when a countdown hits
-  // zero. Mobile browsers only allow *creating/resuming* an AudioContext
-  // synchronously inside a real user-gesture handler (a click); a fresh
+  // including sounds pre-scheduled well ahead of when they'll actually play
+  // (see scheduleQueueSounds). Mobile browsers only allow *creating/resuming*
+  // an AudioContext synchronously inside a real user-gesture handler (a
+  // click); a fresh
   // `new AudioContext()` made later from a timer callback gets silently
   // blocked on phones even though desktop browsers tolerate it once the
   // page has seen any click. Reusing an already-running context sidesteps
@@ -509,67 +513,119 @@
     activeTimerOscillators = [];
   }
 
+  // A single clock basis for both audio scheduling and the visual
+  // countdown, so the display can recompute "remaining" from an absolute
+  // end time instead of accumulating a per-tick counter (which drifts or
+  // stalls outright under background/screen-lock throttling). Prefers the
+  // AudioContext's own clock since that's what scheduled chimes are
+  // actually timed against; falls back to performance.now() so the visual
+  // countdown still works even where Web Audio is unavailable (just without
+  // any actual sound, same as before).
+  function timerClockNow() {
+    return sharedAudioCtx ? sharedAudioCtx.currentTime : performance.now() / 1000;
+  }
+
+  // Builds and schedules one ending's oscillator+gain "notes" starting at
+  // the given absolute time on sharedAudioCtx's clock — `startAt` can be
+  // "now" (an interactive preview) or minutes in the future (a queued
+  // timer's chime, committed ahead of time so it fires precisely even if
+  // the main thread gets throttled in the meantime). Doesn't stop any
+  // already-scheduled sounds itself; callers that want that (previews)
+  // call stopActiveTimerSound() first.
+  function scheduleTimerSoundAt(startAt) {
+    const ctx = sharedAudioCtx;
+    if (!ctx) return; // never primed by a gesture (e.g. Web Audio blocked) — skip silently
+    const note = (freq, start, attack, decay, peak, type) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.value = freq;
+      const t0 = startAt + start;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(peak * timerVolume, t0 + attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + attack + decay + 0.05);
+      activeTimerOscillators.push(osc);
+    };
+    if (timerSound === "bell") {
+      // A single resonant tone (fundamental + two quiet overtones) with a
+      // long decay — sustained and warm, not bright/percussive.
+      note(523, 0, 0.01, 1.8, 0.32);
+      note(1046, 0, 0.01, 1.4, 0.14);
+      note(1568, 0, 0.01, 1.0, 0.08);
+    } else if (timerSound === "beep") {
+      // Three flat, punchy square-wave beeps — digital/alarm-clock, the
+      // most utilitarian and attention-grabbing of the three.
+      note(660, 0, 0.005, 0.25, 0.22, "square");
+      note(660, 0.45, 0.005, 0.25, 0.22, "square");
+      note(660, 0.9, 0.005, 0.25, 0.22, "square");
+    } else if (timerSound === "gong") {
+      // A deep strike with two quiet inharmonic overtones (not a clean
+      // integer-multiple series — that's what makes it read as a
+      // gong/singing-bowl rather than a bell) and a long ~4.8s decay.
+      note(196, 0, 0.02, 4.8, 0.36);
+      note(541, 0, 0.02, 3.2, 0.13);
+      note(803, 0, 0.02, 2.0, 0.08);
+    } else if (timerSound === "ascend") {
+      // A five-note rising run that resolves into a sustained final
+      // note — a bigger, ~4.8s "you're done" than the short chime.
+      note(392, 0.0, 0.02, 0.55, 0.24);
+      note(440, 0.55, 0.02, 0.55, 0.24);
+      note(523, 1.1, 0.02, 0.55, 0.24);
+      note(659, 1.65, 0.02, 0.55, 0.24);
+      note(784, 2.2, 0.03, 2.6, 0.32);
+    } else if (timerSound === "waves") {
+      // Three slow overlapping swells alternating between two close
+      // pitches — a gentle ambient pulse (~5s) instead of a sharp hit.
+      note(220, 0.0, 1.1, 1.5, 0.20);
+      note(247, 1.5, 1.1, 1.5, 0.20);
+      note(220, 3.0, 0.9, 1.3, 0.18);
+    } else {
+      // "chime" (default): two bright ascending sine notes.
+      note(880, 0, 0.05, 0.9, 0.3);
+      note(1320, 0.35, 0.05, 0.9, 0.3);
+    }
+  }
+
+  // Interactive preview: cancels whatever's currently sounding/queued and
+  // plays the current sound right now. Used by the sound picker, preview
+  // button, and volume slider — never by the running timer itself, which
+  // pre-schedules its chimes instead (see scheduleQueueSounds).
   function playTimerSound() {
     try {
       const ctx = sharedAudioCtx;
-      if (!ctx) return; // never primed by a gesture (e.g. Web Audio blocked) — skip silently
+      if (!ctx) return;
       stopActiveTimerSound();
-      const now = ctx.currentTime;
-      const note = (freq, start, attack, decay, peak, type) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = type || "sine";
-        osc.frequency.value = freq;
-        const t0 = now + start;
-        gain.gain.setValueAtTime(0, t0);
-        gain.gain.linearRampToValueAtTime(peak * timerVolume, t0 + attack);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t0);
-        osc.stop(t0 + attack + decay + 0.05);
-        activeTimerOscillators.push(osc);
-      };
-      if (timerSound === "bell") {
-        // A single resonant tone (fundamental + two quiet overtones) with a
-        // long decay — sustained and warm, not bright/percussive.
-        note(523, 0, 0.01, 1.8, 0.32);
-        note(1046, 0, 0.01, 1.4, 0.14);
-        note(1568, 0, 0.01, 1.0, 0.08);
-      } else if (timerSound === "beep") {
-        // Three flat, punchy square-wave beeps — digital/alarm-clock, the
-        // most utilitarian and attention-grabbing of the three.
-        note(660, 0, 0.005, 0.25, 0.22, "square");
-        note(660, 0.45, 0.005, 0.25, 0.22, "square");
-        note(660, 0.9, 0.005, 0.25, 0.22, "square");
-      } else if (timerSound === "gong") {
-        // A deep strike with two quiet inharmonic overtones (not a clean
-        // integer-multiple series — that's what makes it read as a
-        // gong/singing-bowl rather than a bell) and a long ~4.8s decay.
-        note(196, 0, 0.02, 4.8, 0.36);
-        note(541, 0, 0.02, 3.2, 0.13);
-        note(803, 0, 0.02, 2.0, 0.08);
-      } else if (timerSound === "ascend") {
-        // A five-note rising run that resolves into a sustained final
-        // note — a bigger, ~4.8s "you're done" than the short chime.
-        note(392, 0.0, 0.02, 0.55, 0.24);
-        note(440, 0.55, 0.02, 0.55, 0.24);
-        note(523, 1.1, 0.02, 0.55, 0.24);
-        note(659, 1.65, 0.02, 0.55, 0.24);
-        note(784, 2.2, 0.03, 2.6, 0.32);
-      } else if (timerSound === "waves") {
-        // Three slow overlapping swells alternating between two close
-        // pitches — a gentle ambient pulse (~5s) instead of a sharp hit.
-        note(220, 0.0, 1.1, 1.5, 0.20);
-        note(247, 1.5, 1.1, 1.5, 0.20);
-        note(220, 3.0, 0.9, 1.3, 0.18);
-      } else {
-        // "chime" (default): two bright ascending sine notes.
-        note(880, 0, 0.05, 0.9, 0.3);
-        note(1320, 0.35, 0.05, 0.9, 0.3);
-      }
+      scheduleTimerSoundAt(ctx.currentTime);
     } catch (e) {
       // Web Audio unavailable/blocked — the visual countdown already shows completion
     }
+  }
+
+  // Pre-schedules every chime for one pass of `queue`, starting right now,
+  // so the whole run's sounds are committed to the audio graph before any
+  // setInterval tick could get throttled (e.g. screen locked mid-timer).
+  // Returns each item's absolute end time (parallel to `queue`), which
+  // tickTimer uses to recompute the countdown display instead of
+  // decrementing a counter. Note: each chime's volume is baked in at
+  // schedule time — a volume change mid-run won't retroactively affect a
+  // chime that's already scheduled for later in the same pass.
+  function scheduleQueueSounds(queue) {
+    let t = timerClockNow();
+    const endTimes = [];
+    for (const item of queue) {
+      t += timerItemSeconds(item);
+      endTimes.push(t);
+      try {
+        scheduleTimerSoundAt(t);
+      } catch (e) {
+        // Web Audio unavailable/blocked — the visual countdown still tracks
+        // completion via endTimes above
+      }
+    }
+    return endTimes;
   }
 
   function updateTimerSoundUI() {
@@ -619,19 +675,29 @@
   // replay it.
   function returnToTimerPicker() {
     stopTimerInterval();
+    stopActiveTimerSound(); // cancel any pre-scheduled chimes for the rest of the queue
+    timerItemEndTimes = [];
     timerRunningNow = false;
     timerRunningEl.hidden = true;
     timerSetup.hidden = false;
   }
 
+  // Recomputes and displays the remaining time for the current queue item
+  // from its absolute end time rather than a decremented counter, so a
+  // delayed tick (throttled timer, screen was locked) self-corrects to the
+  // true remaining time instead of drifting. Returns the remaining seconds
+  // so tickTimer can tell whether the item has finished.
+  function updateTimerCountdownDisplay() {
+    const remaining = Math.max(0, Math.ceil(timerItemEndTimes[timerQueueIndex] - timerClockNow()));
+    timerCountdownEl.textContent = formatMinSec(remaining);
+    return remaining;
+  }
+
   function tickTimer() {
-    timerRemainingSeconds--;
-    if (timerRemainingSeconds > 0) {
-      timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
-      return;
-    }
+    if (updateTimerCountdownDisplay() > 0) return;
     stopTimerInterval();
-    playTimerSound();
+    // No playTimerSound() here — this item's chime was already scheduled
+    // (and by now played) ahead of time by scheduleQueueSounds.
     recordTimerCompletion(timerActiveQueue[timerQueueIndex]);
     timerQueueIndex++;
     if (timerQueueIndex >= timerActiveQueue.length) {
@@ -642,6 +708,7 @@
       // off.
       if (timerLoop && timerMode === "multi") {
         timerQueueIndex = 0;
+        timerItemEndTimes = scheduleQueueSounds(timerActiveQueue); // fresh pass, fresh schedule
       } else {
         returnToTimerPicker();
         return;
@@ -651,8 +718,7 @@
   }
 
   function startCurrentTimerItem() {
-    timerRemainingSeconds = timerItemSeconds(timerActiveQueue[timerQueueIndex]);
-    timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
+    updateTimerCountdownDisplay();
     // Simple mode is just one bare countdown — no sequence, so no point
     // showing a single square for it.
     if (timerMode === "multi") renderTimerSquares(timerRunningSequenceEl, timerActiveQueue, timerQueueIndex);
@@ -691,6 +757,7 @@
     flashPracticeWordart();
     timerActiveQueue = queue;
     timerQueueIndex = 0;
+    timerItemEndTimes = scheduleQueueSounds(queue);
     timerRunningNow = true;
     timerSetup.hidden = true;
     timerRunningEl.hidden = false;

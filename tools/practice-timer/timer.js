@@ -672,10 +672,18 @@
   // Returns to the setup UI (mode pills + the duration chips, and in multi
   // mode the sequence builder) without clearing timerQueuedItems, so a
   // manual stop or a finished non-looping run can just be re-Confirmed to
-  // replay it.
-  function returnToTimerPicker() {
+  // replay it. `stopSound` is false for a natural, final completion — the
+  // last item's chime starts exactly at this same moment (its scheduled
+  // start time IS the countdown's end time), so stopping it here would cut
+  // it off right as it begins. A manual early stop (the countdown click)
+  // still wants that chime canceled, since it may be scheduled well ahead.
+  function returnToTimerPicker(stopSound = true) {
     stopTimerInterval();
-    stopActiveTimerSound(); // cancel any pre-scheduled chimes for the rest of the queue
+    if (stopSound) {
+      stopActiveTimerSound(); // cancel any pre-scheduled chimes for the rest of the queue
+    } else {
+      activeTimerOscillators = []; // already finished on their own; just drop the stale refs
+    }
     timerItemEndTimes = [];
     timerRunningNow = false;
     timerRunningEl.hidden = true;
@@ -710,7 +718,7 @@
         timerQueueIndex = 0;
         timerItemEndTimes = scheduleQueueSounds(timerActiveQueue); // fresh pass, fresh schedule
       } else {
-        returnToTimerPicker();
+        returnToTimerPicker(false); // let the final chime, just started, finish playing
         return;
       }
     }
@@ -787,7 +795,7 @@
   });
 
   // The countdown number is itself the stop control — no separate button.
-  timerCountdownEl.addEventListener("click", returnToTimerPicker);
+  timerCountdownEl.addEventListener("click", () => returnToTimerPicker());
 
   // ---- init ----
   updateTimerModeUI(); // also renders the saved-timers row

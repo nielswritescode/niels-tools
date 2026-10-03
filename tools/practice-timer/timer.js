@@ -5,6 +5,7 @@
   let timerVolume = 0.7; // 0..1, persisted — it's a preference, not session state
   let timerMode = "simple"; // 'simple' | 'multi' — also persisted
   let timerLoop = false;
+  let timerShortcutsEnabled = true; // keyboard shortcuts on/off, persisted
   const TIMER_DURATION_UNITS = ["minutes", "seconds"];
   const MAX_MULTI_QUEUE = 99; // hard cap on how many items the multi-timer queue can hold
   // The picker's pool of presets, each with its own unit — editable via the
@@ -49,6 +50,7 @@
     }
     if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
     if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
+    if (typeof stored.timerShortcutsEnabled === "boolean") timerShortcutsEnabled = stored.timerShortcutsEnabled;
     if (
       Array.isArray(stored.timerSavedPresets) &&
       stored.timerSavedPresets.every((p) => (
@@ -79,6 +81,7 @@
         timerDurations,
         timerMode,
         timerLoop,
+        timerShortcutsEnabled,
         timerSavedPresets,
         timerStats,
       }));
@@ -132,6 +135,8 @@
   const timerCountdownEl = document.getElementById("timerCountdown");
   const timerStatsCountEl = document.getElementById("timerStatsCount");
   const timerStatsDurationEl = document.getElementById("timerStatsDuration");
+  const timerShortcutsPills = document.querySelectorAll(".timer-shortcuts-pill");
+  const timerShortcutsList = document.getElementById("timerShortcutsList");
 
   // Practice timer state. timerMode, timerLoop and timerDurations are
   // declared above and persisted — they're preferences. The rest here is
@@ -366,13 +371,6 @@
     if (!btn) return;
     primeTimerAudio();
     applySequenceRepeat(Number(btn.dataset.repeat));
-  });
-
-  // Lets "press a number" mean an actual keypress, not just tapping a pill —
-  // only listens while a sub-sequence is actively being built.
-  document.addEventListener("keydown", (e) => {
-    if (!timerSequenceBuildMode) return;
-    if (e.key >= "1" && e.key <= "9") applySequenceRepeat(Number(e.key));
   });
 
   let timerAddUnit = "minutes"; // remembered across opens in this session for convenience, not persisted
@@ -797,6 +795,67 @@
   // The countdown number is itself the stop control — no separate button.
   timerCountdownEl.addEventListener("click", () => returnToTimerPicker());
 
+  function updateTimerShortcutsUI() {
+    timerShortcutsPills.forEach((btn) => {
+      btn.classList.toggle("active", (btn.dataset.timerShortcuts === "on") === timerShortcutsEnabled);
+    });
+    timerShortcutsList.classList.toggle("disabled", !timerShortcutsEnabled);
+  }
+  timerShortcutsPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      timerShortcutsEnabled = btn.dataset.timerShortcuts === "on";
+      updateTimerShortcutsUI();
+      saveSettings();
+    });
+  });
+
+  // Keyboard shortcuts, all gated by the setting above. Each one just
+  // clicks the matching on-screen control so it inherits that control's
+  // own guards (e.g. mode switches being ignored mid-countdown) rather
+  // than duplicating them here.
+  document.addEventListener("keydown", (e) => {
+    if (!timerShortcutsEnabled) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (timerAddDialog.open || timerSaveDialog.open) return; // typing in a dialog
+    const target = e.target;
+    if (target.closest && target.closest("input, textarea, select")) return;
+    // Space on a focused button already presses that button natively —
+    // don't also fire the global start/stop on top of it.
+    if (e.key === " " && target.closest && target.closest("button, summary")) return;
+
+    const key = e.key.toLowerCase();
+    let handled = true;
+    if (timerRunningNow) {
+      if (key === " " || key === "escape") timerCountdownEl.click();
+      else handled = false;
+    } else if (key >= "1" && key <= "9") {
+      if (timerSequenceBuildMode) {
+        primeTimerAudio();
+        applySequenceRepeat(Number(key));
+      } else if (!timerRemoveMode) {
+        const chip = timerDurationRow.children[Number(key) - 1];
+        if (chip) chip.click();
+      }
+    } else if (key === " ") {
+      if (timerMode === "multi" && !timerSequenceBuildMode) timerConfirmBtn.click();
+      else handled = false;
+    } else if (key === "backspace") {
+      if (timerSequenceBuildMode) timerSubSequenceReturnBtn.click();
+      else if (timerMode === "multi") timerReturnBtn.click();
+      else handled = false;
+    } else if (key === "s") {
+      document.querySelector('.timer-mode-pill[data-timer-mode="simple"]').click();
+    } else if (key === "m") {
+      document.querySelector('.timer-mode-pill[data-timer-mode="multi"]').click();
+    } else if (key === "l") {
+      if (timerMode === "multi") timerLoopBtn.click();
+      else handled = false;
+    } else {
+      handled = false;
+    }
+    if (handled) e.preventDefault();
+  });
+
   // ---- init ----
   updateTimerModeUI(); // also renders the saved-timers row
   timerLoopBtn.classList.toggle("active", timerLoop);
@@ -805,4 +864,5 @@
   updateTimerSoundUI();
   updateTimerVolumeUI();
   updateTimerStatsUI();
+  updateTimerShortcutsUI();
 })();

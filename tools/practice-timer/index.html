@@ -80,6 +80,19 @@
         <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
         <span class="range-value" id="timerVolumeValue">70%</span>
       </div>
+      <div class="row" style="margin-top:14px;">
+        <div class="label">Keyboard shortcuts</div>
+        <button type="button" class="pill timer-shortcuts-pill active" data-timer-shortcuts="on">On</button>
+        <button type="button" class="pill timer-shortcuts-pill" data-timer-shortcuts="off">Off</button>
+      </div>
+      <ul class="timer-shortcuts-list" id="timerShortcutsList">
+        <li><kbd>Space</kbd> Start (multi: confirm) / stop</li>
+        <li><kbd>Esc</kbd> Stop running timer</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd> Pick the Nth timer (while building a sequence: repeat count)</li>
+        <li><kbd>Backspace</kbd> Undo last queued timer</li>
+        <li><kbd>S</kbd> / <kbd>M</kbd> Simple / Multi mode</li>
+        <li><kbd>L</kbd> Toggle loop (multi)</li>
+      </ul>
     </div>
   </details>
 
